@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "main": "calendarData.js",
   "scripts": {
-    "start": "node ./src/calendarData.js"
   },
   "keywords": [],
   "author": "",

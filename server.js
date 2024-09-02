@@ -6,7 +6,7 @@ const path = require('path')
 // const DIR =
 //   '/home/fallingsakura/CodeProgram/Front-End/Apps/Portfolio/FallingWeb/src/'
 // const dataPath = path.join(DIR, './data/calendar.json')
-const dataPath = './src/calendar.json'
+const dataPath = path.join(__dirname, './src/calendar.json')
 const cors = require('cors')
 
 app.use(cors())
@@ -28,6 +28,7 @@ app.post('/update-data', (req, res) => {
   res.send('Success')
 })
 app.get('/', (req, res) => {
+  console.log(dataPath)
   res.send('Hello World')
 })
 app.get('/get-data', (req, res) => {

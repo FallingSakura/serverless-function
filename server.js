@@ -6,7 +6,7 @@ const path = require('path')
 // const DIR =
 //   '/home/fallingsakura/CodeProgram/Front-End/Apps/Portfolio/FallingWeb/src/'
 // const dataPath = path.join(DIR, './data/calendar.json')
-const dataPath = './calendar.json'
+const dataPath = './src/calendar.json'
 const cors = require('cors')
 
 app.use(cors())

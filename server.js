@@ -27,6 +27,9 @@ app.post('/update-data', (req, res) => {
   })
   res.send('Success')
 })
+app.get('/', (req, res) => {
+  res.send('Hello World')
+})
 app.get('/get-data', (req, res) => {
   fs.readFile(dataPath, 'utf-8', (err, data) => {
     if (err) {

@@ -30,6 +30,7 @@ app.post('/update-data', (req, res) => {
 app.get('/get-data', (req, res) => {
   fs.readFile(dataPath, 'utf-8', (err, data) => {
     if (err) {
+      console.error(err)
       return res.status(500).send('Error reading data file.')
     }
     res.json(JSON.parse(data))

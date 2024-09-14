@@ -1,62 +1,66 @@
+require('dotenv').config()
 const fs = require('fs')
-const express = require('express')
-const app = express()
-const port = 3000
 const path = require('path')
-// const DIR =
-//   '/home/fallingsakura/CodeProgram/Front-End/Apps/Portfolio/FallingWeb/src/'
-// const dataPath = path.join(DIR, './data/calendar.json')
-const dataPath = path.join(__dirname, './src/calendar.json')
+const express = require('express')
 const cors = require('cors')
+const { MongoClient, ObjectId } = require('mongodb')
+const app = express()
+const uri = process.env.MONGODB_URI
+const port = 5000
+const dataPath = path.join(__dirname, './src/calendar.json')
+const client = new MongoClient(uri)
 
-app.use(cors())
-app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
-app.post('/update-data', (req, res) => {
-  const newData = req.body
-  fs.readFile(dataPath, 'utf-8', (err, data) => {
-    if (err) {
-      return res.status(500).send('Error reading data file.')
-    }
-    let jsonData = { ...JSON.parse(data), ...newData }
-    fs.writeFile(
-      dataPath,
-      JSON.stringify(jsonData, null, 2),
-      'utf-8',
-      (err) => err
-    )
-  })
-  res.send('Success')
-})
-app.get('/', (req, res) => {
-  console.log(dataPath)
-  res.send('Hello World')
-})
-app.get('/get-data', (req, res) => {
-  fs.readFile(dataPath, 'utf-8', (err, data) => {
-    if (err) {
+let database, collection
+
+async function connectToDatabase() {
+  try {
+    await client.connect()
+    console.log('Connected to MongoDB Atlas!')
+    database = client.db('calendar')
+    collection = database.collection('fallingsakura')
+  } catch (err) {
+    console.error(err)
+  }
+
+  app.use(cors())
+  app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
+  app.put('/update-data/:id', async (req, res) => {
+    const id = req.params.id
+    const { date, value } = req.body
+    try {
+      await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { [`data.${date}`]: value } }
+      )
+    } catch (err) {
       console.error(err)
-      return res.status(500).send('Error reading data file.')
     }
-    res.json(JSON.parse(data))
-    // json -> Object -> json -> String
+    res.send('Update-data Success')
   })
-})
-app.listen(port, '0.0.0.0', () => {
-  // 每次启动时清空 null 数据
-  fs.readFile(dataPath, 'utf-8', (err, data) => {
-    const newData = JSON.parse(data)
-    const clearData = Object.keys(newData).reduce((acc, key) => {
-      if (newData[key] !== null) {
-        acc[key] = newData[key]
-      }
-      return acc
-    }, {})
-    fs.writeFile(
-      dataPath,
-      JSON.stringify(clearData, null, 2),
-      'utf-8',
-      (err) => err
-    )
+  app.get('/get-data/:id', async (req, res) => {
+    const id = req.params.id
+    const document = await collection.findOne({ _id: new ObjectId(id) })
+    await clearData(document, id)
+    res.json(document.data)
   })
-  console.log(`Server running at https://localhost:${port}`)
-})
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running at https://localhost:${port}`)
+  })
+}
+
+connectToDatabase().catch(console.error)
+
+async function clearData(document, id) {
+  if (!document || !document.data) {
+    console.log("Document or 'data' field not found.")
+    return
+  }
+  const keysToUnset = {}
+  for (const key in document.data) {
+    if (document.data[key] === null) {
+      keysToUnset[`data.${key}`] = ''
+    }
+  }
+  if (Object.keys(keysToUnset).length === 0) return
+  await collection.updateOne({ _id: new ObjectId(id) }, { $unset: keysToUnset })
+}

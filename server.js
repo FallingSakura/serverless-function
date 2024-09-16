@@ -1,5 +1,4 @@
 require('dotenv').config()
-const path = require('path')
 const express = require('express')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
@@ -8,7 +7,6 @@ const { MongoClient, ObjectId } = require('mongodb')
 const app = express()
 const uri = process.env.MONGODB_URI
 const port = 5000
-const dataPath = path.join(__dirname, './src/calendar.json')
 const client = new MongoClient(uri)
 
 let database, collection

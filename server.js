@@ -12,13 +12,13 @@ const port = 5000
 let database, collection, client
 async function connectToDatabase() {
   if (!client) {
-    client = new MongoClient(uri);
-    await client.connect();
-    database = client.db('calendar');
-    collection = database.collection('fallingsakura');
-    console.log('Connected to MongoDB Atlas!');
+    client = new MongoClient(uri)
+    await client.connect()
+    database = client.db('calendar')
+    collection = database.collection('fallingsakura')
+    console.log('Connected to MongoDB Atlas!')
   }
-  return collection;
+  return collection
 }
 
 app.use(cors())
@@ -47,16 +47,19 @@ app.get('/get-data', authenticateToken, async (req, res) => {
 app.post('/login', async (req, res) => {
   const collection = await connectToDatabase()
   const { email, password } = req.body
+  if (!email) return res.status(400).json({ message: 'No Email.' })
   const user = await collection.findOne({ email: email })
   if (!user) {
     return res.status(400).json({ message: 'User not found.' })
   }
   // const isPasswordValid = await bcryptjs.compare(password, user.data.password)
-  const isPasswordValid = (password === user.password)
+  const isPasswordValid = password === user.password
   if (!isPasswordValid) {
     return res.status(400).json({ message: 'Password Error.' })
   }
-  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {expiresIn: '24h' })
+  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {
+    expiresIn: '24h'
+  })
   res.json({ token })
 })
 app.listen(port, '0.0.0.0', () => {
@@ -89,4 +92,3 @@ function authenticateToken(req, res, next) {
     next()
   })
 }
-

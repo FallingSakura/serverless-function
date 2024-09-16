@@ -38,7 +38,8 @@ async function connectToDatabase() {
     res.send('Update-data Success')
   })
   app.get('/get-data', authenticateToken, async (req, res) => {
-    const id = req.params.id
+    const id = req.id
+    console.log(id)
     const document = await collection.findOne({ _id: new ObjectId(id) })
     await clearData(document, id)
     res.json(document.data)
@@ -54,7 +55,7 @@ async function connectToDatabase() {
     if (!isPasswordValid) {
       return res.status(400).json({ message: 'Password Error.' })
     }
-    const token = jwt.sign({ id: user.data._id }, 'hahaha', {expiresIn: '24h' })
+    const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {expiresIn: '24h' })
     res.json({ token })
   })
   app.listen(port, '0.0.0.0', () => {
@@ -84,9 +85,9 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1]
   if (!token) return res.status(401).json({ message: 'No Token.' })
 
-  jwt.verify(token, 'hahaha', (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Token Invalid.' })
-      req.user = user
-      next()
+    req.id = user.id
+    next()
   })
 }

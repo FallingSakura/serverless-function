@@ -25,7 +25,7 @@ app.use(cors())
 app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
 app.put('/update-data', authenticateToken, async (req, res) => {
   const collection = await connectToDatabase()
-  const id = req.params.id
+  const id = req.id
   const { date, value } = req.body
   try {
     await collection.updateOne(
@@ -40,7 +40,6 @@ app.put('/update-data', authenticateToken, async (req, res) => {
 app.get('/get-data', authenticateToken, async (req, res) => {
   const collection = await connectToDatabase()
   const id = req.id
-  console.log(id)
   const document = await collection.findOne({ _id: new ObjectId(id) })
   await clearData(document, id)
   res.json(document.data)

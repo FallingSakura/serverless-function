@@ -4,66 +4,65 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
 const cors = require('cors')
 const { MongoClient, ObjectId } = require('mongodb')
+const { connect } = require('mongoose')
 const app = express()
 const uri = process.env.MONGODB_URI
 const port = 5000
-const client = new MongoClient(uri)
 
-let database, collection
-
+let database, collection, client
 async function connectToDatabase() {
+  if (!client) {
+    client = new MongoClient(uri);
+    await client.connect();
+    database = client.db('calendar');
+    collection = database.collection('fallingsakura');
+    console.log('Connected to MongoDB Atlas!');
+  }
+  return collection;
+}
+
+app.use(cors())
+app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
+app.put('/update-data', authenticateToken, async (req, res) => {
+  const collection = await connectToDatabase()
+  const id = req.params.id
+  const { date, value } = req.body
   try {
-    await client.connect()
-    console.log('Connected to MongoDB Atlas!')
-    database = client.db('calendar')
-    collection = database.collection('fallingsakura')
+    await collection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { [`data.${date}`]: value } }
+    )
   } catch (err) {
     console.error(err)
   }
-
-  app.use(cors())
-  app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
-  app.put('/update-data', authenticateToken, async (req, res) => {
-    res.send("haha")
-    const id = req.params.id
-    const { date, value } = req.body
-    try {
-      await collection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { [`data.${date}`]: value } }
-      )
-    } catch (err) {
-      console.error(err)
-    }
-    res.send('Update-data Success')
-  })
-  app.get('/get-data', authenticateToken, async (req, res) => {
-    const id = req.id
-    console.log(id)
-    const document = await collection.findOne({ _id: new ObjectId(id) })
-    await clearData(document, id)
-    res.json(document.data)
-  })
-  app.post('/login', async (req, res) => {
-    const { email, password } = req.body
-    const user = await collection.findOne({ email: email })
-    if (!user) {
-      return res.status(400).json({ message: 'User not found.' })
-    }
-    // const isPasswordValid = await bcrypt.compare(password, user.data.password)
-    const isPasswordValid = (password === user.password)
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: 'Password Error.' })
-    }
-    const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {expiresIn: '24h' })
-    res.json({ token })
-  })
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running at http://localhost:${port}`)
-  })
-}
-
-connectToDatabase().catch(console.error)
+  res.send('Update-data Success')
+})
+app.get('/get-data', authenticateToken, async (req, res) => {
+  const collection = await connectToDatabase()
+  const id = req.id
+  console.log(id)
+  const document = await collection.findOne({ _id: new ObjectId(id) })
+  await clearData(document, id)
+  res.json(document.data)
+})
+app.post('/login', async (req, res) => {
+  const collection = await connectToDatabase()
+  const { email, password } = req.body
+  const user = await collection.findOne({ email: email })
+  if (!user) {
+    return res.status(400).json({ message: 'User not found.' })
+  }
+  // const isPasswordValid = await bcrypt.compare(password, user.data.password)
+  const isPasswordValid = (password === user.password)
+  if (!isPasswordValid) {
+    return res.status(400).json({ message: 'Password Error.' })
+  }
+  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {expiresIn: '24h' })
+  res.json({ token })
+})
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server running at http://localhost:${port}`)
+})
 
 async function clearData(document, id) {
   if (!document || !document.data) {
@@ -91,3 +90,4 @@ function authenticateToken(req, res, next) {
     next()
   })
 }
+

@@ -1,7 +1,7 @@
 require('dotenv').config()
 const express = require('express')
 const jwt = require('jsonwebtoken')
-const bcrypt = require('bcrypt')
+const bcryptjs = require('bcryptjs')
 const cors = require('cors')
 const { MongoClient, ObjectId } = require('mongodb')
 const { connect } = require('mongoose')
@@ -52,7 +52,7 @@ app.post('/login', async (req, res) => {
   if (!user) {
     return res.status(400).json({ message: 'User not found.' })
   }
-  // const isPasswordValid = await bcrypt.compare(password, user.data.password)
+  // const isPasswordValid = await bcryptjs.compare(password, user.data.password)
   const isPasswordValid = (password === user.password)
   if (!isPasswordValid) {
     return res.status(400).json({ message: 'Password Error.' })

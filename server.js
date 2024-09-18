@@ -10,8 +10,6 @@ const port = 5000
 
 let database, collection, client
 
-connectToDatabase()
-
 app.use(cors())
 app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
 app.put('/update-data', authenticateToken, async (req, res) => {
@@ -48,7 +46,6 @@ app.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'User not found.' })
   }
   const isPasswordValid = await bcrypt.compare(password, user.password)
-  // const isPasswordValid = password === user.password
   if (!isPasswordValid) {
     return res.status(400).json({ message: 'Password Error.' })
   }
@@ -63,8 +60,6 @@ app.post('/login', async (req, res) => {
 })
 app.post('/register', async (req, res) => {
   connectToDatabase()
-  // await mongoose.connect(process.env.MONGOOSE_URI)
-  // console.log('Connect to Mongoose')
   const { name, email, password } = req.body
   try {
     let user = await collection.findOne({ email: email })

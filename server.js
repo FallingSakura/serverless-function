@@ -10,7 +10,7 @@ const port = 5000
 
 let database, collection, client
 
-await connectToDatabase()
+connectToDatabase()
 
 app.use(cors())
 app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
@@ -118,7 +118,7 @@ async function connectToDatabase() {
     collection = database.collection('fallingsakura')
     console.log('Connected to MongoDB Atlas!')
   }
-  return collection
+  return
 }
 async function generatePassword(password) {
   const salt = await bcrypt.genSalt(10)

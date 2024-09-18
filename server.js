@@ -4,29 +4,16 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const cors = require('cors')
 const { MongoClient, ObjectId } = require('mongodb')
-const { connect } = require('mongoose')
 const app = express()
 const uri = process.env.MONGODB_URI
 const port = 5000
-const User = require('./src/modules/User')
 
-let client
-async function connectToDatabase() {
-  let database, collection
-  if (!client) {
-    client = new MongoClient(uri)
-    await client.connect()
-    database = client.db('calendar')
-    collection = database.collection('fallingsakura')
-    console.log('Connected to MongoDB Atlas!')
-  }
-  return collection
-}
+let database, collection, client
 
 app.use(cors())
 app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
 app.put('/update-data', authenticateToken, async (req, res) => {
-  const collection = await connectToDatabase()
+  await connectToDatabase()
   const id = req.id
   const { date, value } = req.body
   try {
@@ -40,64 +27,101 @@ app.put('/update-data', authenticateToken, async (req, res) => {
   res.send('Update-data Success')
 })
 app.get('/get-data', authenticateToken, async (req, res) => {
-  const collection = await connectToDatabase()
+  await connectToDatabase()
   const id = req.id
   const document = await collection.findOne({ _id: new ObjectId(id) })
+  if (!document) {
+    return res.send('not login')
+  }
   clearData(document, id)
   res.json(document.data)
 })
 app.post('/login', async (req, res) => {
-  const collection = await connectToDatabase()
+  await connectToDatabase()
   const { email, password } = req.body
   try {
-    if (!email) return res.status(400).json({ message: 'No Email.' })
-    const user = await collection.findOne({ email: email })
-    if (!user) {
-      return res.status(400).json({ message: 'User not found.' })
-    }
-    const isPasswordValid = await bcryptjs.compare(password, user.password)
-    // const isPasswordValid = password === user.password
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: 'Password Error.' })
-    }
-    const token = jwt.sign(
-      { id: user._id.toString() },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: '24h'
-      }
-    )
-    res.json({ token })
+  if (!email) return res.status(400).json({ message: 'No Email.' })
+  const user = await collection.findOne({ email: email })
+  if (!user) {
+    return res.status(400).json({ message: 'User not found.' })
+  }
+  const isPasswordValid = await bcrypt.compare(password, user.password)
+  // const isPasswordValid = password === user.password
+  if (!isPasswordValid) {
+    return res.status(400).json({ message: 'Password Error.' })
+  }
+  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {
+    expiresIn: '24h'
+  })
+  res.json({ token })
   } catch (err) {
     console.error(err.message)
     res.status(500).send('Server Error')
   }
 })
 app.post('/register', async (req, res) => {
-  const collection = await connectToDatabase()
+  connectToDatabase()
+  // await mongoose.connect(process.env.MONGOOSE_URI)
+  // console.log('Connect to Mongoose')
   const { name, email, password } = req.body
   try {
     let user = await collection.findOne({ email: email })
     if (user) {
       return res.status(400).json({ message: 'User has existed' })
     }
-    user = new User({
-      name,
-      email,
-      password
-    })
-    const salt = await bcrypt.genSalt(10)
-    user.password = await bcrypt.hash(password, salt)
-    await user.save()
-    res.status(201).json({ msg: 'Register Successfully!', userId: user._id })
+    user = {
+      name: name,
+      email: email,
+      password: await generatePassword(password),
+      createAt: Date.now
+    }
+    const result = await collection.insertOne(user)
+    console.log(result)
+    console.log(`New user created with ID: ${result.insertedId}`)
+    res.status(201).json({ message: 'Register Successfully!', userId: user._id })
   } catch (err) {
     console.error(err.message)
+    res.status(500).send('Server Error')
+  }
+})
+app.put('/changepassword', authenticateToken, async (req, res) => {
+  await connectToDatabase()
+  const id = req.id
+  const { email, oldPassword, newPassword } = req.body
+  try {
+    const user = await collection.findOne({ email: email })
+    if (!user) {
+      return res.status(401).json({ message: 'email error' })
+    }
+    collection.updateOne({_id: new ObjectId(id)}, {
+      $set: {
+        password: await generatePassword(newPassword)
+      }
+    })
+    res.status(200).json({ message: 'Changed Successfully!'})
+  } catch (err) {
+    console.error(err)
     res.status(500).send('Server Error')
   }
 })
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server running at http://localhost:${port}`)
 })
+
+async function connectToDatabase() {
+  if (!client) {
+    client = new MongoClient(uri)
+    await client.connect()
+    database = client.db('calendar')
+    collection = database.collection('fallingsakura')
+    console.log('Connected to MongoDB Atlas!')
+  }
+  return collection
+}
+async function generatePassword(password) {
+  const salt = await bcrypt.genSalt(10)
+  return await bcrypt.hash(password, salt)
+}
 
 async function clearData(document, id) {
   if (!document || !document.data) {

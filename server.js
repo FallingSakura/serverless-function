@@ -1,16 +1,18 @@
 require('dotenv').config()
 const express = require('express')
 const jwt = require('jsonwebtoken')
-const bcryptjs = require('bcryptjs')
+const bcrypt = require('bcryptjs')
 const cors = require('cors')
 const { MongoClient, ObjectId } = require('mongodb')
 const { connect } = require('mongoose')
 const app = express()
 const uri = process.env.MONGODB_URI
 const port = 5000
+const User = require('./src/modules/User')
 
-let database, collection, client
+let client
 async function connectToDatabase() {
+  let database, collection
   if (!client) {
     client = new MongoClient(uri)
     await client.connect()
@@ -41,26 +43,57 @@ app.get('/get-data', authenticateToken, async (req, res) => {
   const collection = await connectToDatabase()
   const id = req.id
   const document = await collection.findOne({ _id: new ObjectId(id) })
-  await clearData(document, id)
+  clearData(document, id)
   res.json(document.data)
 })
 app.post('/login', async (req, res) => {
   const collection = await connectToDatabase()
   const { email, password } = req.body
-  if (!email) return res.status(400).json({ message: 'No Email.' })
-  const user = await collection.findOne({ email: email })
-  if (!user) {
-    return res.status(400).json({ message: 'User not found.' })
+  try {
+    if (!email) return res.status(400).json({ message: 'No Email.' })
+    const user = await collection.findOne({ email: email })
+    if (!user) {
+      return res.status(400).json({ message: 'User not found.' })
+    }
+    const isPasswordValid = await bcryptjs.compare(password, user.password)
+    // const isPasswordValid = password === user.password
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Password Error.' })
+    }
+    const token = jwt.sign(
+      { id: user._id.toString() },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '24h'
+      }
+    )
+    res.json({ token })
+  } catch (err) {
+    console.error(err.message)
+    res.status(500).send('Server Error')
   }
-  // const isPasswordValid = await bcryptjs.compare(password, user.data.password)
-  const isPasswordValid = password === user.password
-  if (!isPasswordValid) {
-    return res.status(400).json({ message: 'Password Error.' })
+})
+app.post('/register', async (req, res) => {
+  const collection = await connectToDatabase()
+  const { name, email, password } = req.body
+  try {
+    let user = await collection.findOne({ email: email })
+    if (user) {
+      return res.status(400).json({ message: 'User has existed' })
+    }
+    user = new User({
+      name,
+      email,
+      password
+    })
+    const salt = await bcrypt.genSalt(10)
+    user.password = await bcrypt.hash(password, salt)
+    await user.save()
+    res.status(201).json({ msg: 'Register Successfully!', userId: user._id })
+  } catch (err) {
+    console.error(err.message)
+    res.status(500).send('Server Error')
   }
-  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {
-    expiresIn: '24h'
-  })
-  res.json({ token })
 })
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server running at http://localhost:${port}`)

@@ -10,6 +10,8 @@ const port = 5000
 
 let database, collection, client
 
+connectToDatabase()
+
 app.use(cors())
 app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
 app.put('/update-data', authenticateToken, async (req, res) => {

@@ -26,15 +26,24 @@ app.put('/update-data', authenticateToken, async (req, res) => {
   }
   res.send('Update-data Success')
 })
-app.get('/get-data', authenticateToken, async (req, res) => {
+app.get('/get/:item', authenticateToken, async (req, res) => {
   await connectToDatabase()
+  const item = req.params.item 
   const id = req.id
   const document = await collection.findOne({ _id: new ObjectId(id) })
   if (!document) {
     return res.send('not login')
   }
-  clearData(document, id)
-  res.json(document.data)
+  switch (item) {
+    case 'data':
+      clearData(document, id)
+      res.json(document.data)
+      break
+    case 'avatar':
+      res.json({ avatar: document.avatar })
+      break
+  }
+  res.json({ message: 'OK'})
 })
 app.post('/login', async (req, res) => {
   await connectToDatabase()

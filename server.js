@@ -50,7 +50,7 @@ app.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Password Error.' })
   }
   const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {
-    expiresIn: '10s'
+    expiresIn: '7d'
   })
   res.json({ token })
   } catch (err) {

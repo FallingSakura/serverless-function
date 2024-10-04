@@ -42,8 +42,10 @@ app.get('/get/:item', authenticateToken, async (req, res) => {
     case 'avatar':
       res.json({ avatar: document.avatar })
       break
+    default:
+      res.send('Invalid Request.')
+      break
   }
-  res.json({ message: 'OK'})
 })
 app.post('/login', async (req, res) => {
   await connectToDatabase()

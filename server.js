@@ -6,12 +6,12 @@ const cors = require('cors')
 const { MongoClient, ObjectId } = require('mongodb')
 const app = express()
 const uri = process.env.MONGODB_URI
-const port = 5000
+const port = 5001
 
 let database, collection, client
 
 app.use(cors())
-app.use(express.json()) // 中间件，将 JSON 请求体转换为对象
+app.use(express.json())
 app.put('/update-data', authenticateToken, async (req, res) => {
   await connectToDatabase()
   const id = req.id
@@ -28,7 +28,7 @@ app.put('/update-data', authenticateToken, async (req, res) => {
 })
 app.get('/get/:item', authenticateToken, async (req, res) => {
   await connectToDatabase()
-  const item = req.params.item 
+  const item = req.params.item
   const id = req.id
   const document = await collection.findOne({ _id: new ObjectId(id) })
   if (!document) {
@@ -51,26 +51,30 @@ app.post('/login', async (req, res) => {
   await connectToDatabase()
   const { email, password } = req.body
   try {
-  if (!email) return res.status(400).json({ message: 'No Email.' })
-  const user = await collection.findOne({ email: email })
-  if (!user) {
-    return res.status(400).json({ message: 'User not found.' })
-  }
-  const isPasswordValid = await bcrypt.compare(password, user.password)
-  if (!isPasswordValid) {
-    return res.status(400).json({ message: 'Password Error.' })
-  }
-  const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET, {
-    expiresIn: '7d'
-  })
-  res.json({ token })
+    if (!email) return res.status(400).json({ message: 'No Email.' })
+    const user = await collection.findOne({ email: email })
+    if (!user) {
+      return res.status(400).json({ message: 'User not found.' })
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Password Error.' })
+    }
+    const token = jwt.sign(
+      { id: user._id.toString() },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: '7d'
+      }
+    )
+    res.json({ token })
   } catch (err) {
     console.error(err.message)
     res.status(500).send('Server Error')
   }
 })
 app.post('/register', async (req, res) => {
-  connectToDatabase()
+  await connectToDatabase()
   const { name, email, password } = req.body
   try {
     let user = await collection.findOne({ email: email })
@@ -84,9 +88,10 @@ app.post('/register', async (req, res) => {
       createAt: Date.now
     }
     const result = await collection.insertOne(user)
-    console.log(result)
     console.log(`New user created with ID: ${result.insertedId}`)
-    res.status(201).json({ message: 'Register Successfully!', userId: user._id })
+    res
+      .status(201)
+      .json({ message: 'Register Successfully!', userId: user._id })
   } catch (err) {
     console.error(err.message)
     res.status(500).send('Server Error')
@@ -101,19 +106,22 @@ app.put('/changepassword', authenticateToken, async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'email error' })
     }
-    collection.updateOne({_id: new ObjectId(id)}, {
-      $set: {
-        password: await generatePassword(newPassword)
+    collection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          password: await generatePassword(newPassword)
+        }
       }
-    })
-    res.status(200).json({ message: 'Changed Successfully!'})
+    )
+    res.status(200).json({ message: 'Changed Successfully!' })
   } catch (err) {
     console.error(err)
     res.status(500).send('Server Error')
   }
 })
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running at http://localhost:${port}`)
+  console.log(`Server is running at http://localhost:${port}`)
 })
 
 async function connectToDatabase() {

@@ -9,9 +9,56 @@ const uri = process.env.MONGODB_URI
 const port = 5001
 
 let database, collection, client
+async function connectToDatabase() {
+  if (!client) {
+    client = new MongoClient(uri)
+    await client.connect()
+    database = client.db('calendar')
+    collection = database.collection('fallingsakura')
+    console.log('Connected to MongoDB Atlas!')
+  }
+  return
+}
+// Generate password hash
+async function generatePassword(password) {
+  const salt = await bcrypt.genSalt(10)
+  return await bcrypt.hash(password, salt)
+}
+// Clear null data in user's document
+async function clearData(document, id) {
+  if (!document || !document.data) {
+    console.log("Document or 'data' field not found.")
+    return
+  }
+  const keysToUnset = {}
+  for (const key in document.data) {
+    if (document.data[key] === null) {
+      keysToUnset[`data.${key}`] = ''
+    }
+  }
+  if (Object.keys(keysToUnset).length === 0) return
+  await collection.updateOne({ _id: new ObjectId(id) }, { $unset: keysToUnset })
+}
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+  if (!token) return res.status(401).json({ message: 'No Token.' })
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Token Invalid.' })
+    req.id = user.id
+    next()
+  })
+}
 
 app.use(cors())
 app.use(express.json())
+app.use((req, res, next) => {
+  console.log(`Request Time: ${new Date()}`)
+  next()
+})
+
 app.put('/update-data', authenticateToken, async (req, res) => {
   await connectToDatabase()
   const id = req.id
@@ -23,6 +70,7 @@ app.put('/update-data', authenticateToken, async (req, res) => {
     )
   } catch (err) {
     console.error(err)
+    res.status(500).send('Update: Server Error')
   }
   res.send('Update-data Success')
 })
@@ -41,6 +89,9 @@ app.get('/get/:item', authenticateToken, async (req, res) => {
       break
     case 'avatar':
       res.json({ avatar: document.avatar })
+      break
+    case 'username':
+      res.json({ username: document.name })
       break
     default:
       res.send('Invalid Request.')
@@ -70,7 +121,7 @@ app.post('/login', async (req, res) => {
     res.json({ token })
   } catch (err) {
     console.error(err.message)
-    res.status(500).send('Server Error')
+    res.status(500).send('Login: Server Error')
   }
 })
 app.post('/register', async (req, res) => {
@@ -123,45 +174,3 @@ app.put('/changepassword', authenticateToken, async (req, res) => {
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running at http://localhost:${port}`)
 })
-
-async function connectToDatabase() {
-  if (!client) {
-    client = new MongoClient(uri)
-    await client.connect()
-    database = client.db('calendar')
-    collection = database.collection('fallingsakura')
-    console.log('Connected to MongoDB Atlas!')
-  }
-  return
-}
-async function generatePassword(password) {
-  const salt = await bcrypt.genSalt(10)
-  return await bcrypt.hash(password, salt)
-}
-
-async function clearData(document, id) {
-  if (!document || !document.data) {
-    console.log("Document or 'data' field not found.")
-    return
-  }
-  const keysToUnset = {}
-  for (const key in document.data) {
-    if (document.data[key] === null) {
-      keysToUnset[`data.${key}`] = ''
-    }
-  }
-  if (Object.keys(keysToUnset).length === 0) return
-  await collection.updateOne({ _id: new ObjectId(id) }, { $unset: keysToUnset })
-}
-
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
-  if (!token) return res.status(401).json({ message: 'No Token.' })
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Token Invalid.' })
-    req.id = user.id
-    next()
-  })
-}

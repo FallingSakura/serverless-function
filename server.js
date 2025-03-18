@@ -7,16 +7,30 @@ const { MongoClient, ObjectId } = require('mongodb')
 const app = express()
 const uri = process.env.MONGODB_URI
 const port = 5001
+let connectionPromise = null
 
 let database, collection, client
 async function connectToDatabase() {
-  if (!client) {
-    client = new MongoClient(uri)
-    await client.connect()
-    database = client.db('calendar')
-    collection = database.collection('fallingsakura')
-    console.log('Connected to MongoDB Atlas!')
+  if (client?.topology?.isConnected()) return
+  if (!connectionPromise) {
+    connectionPromise = (async () => {
+      try {
+        const tempClient = new MongoClient(uri) // 使用临时变量
+        await tempClient.connect()
+
+        client = tempClient
+        database = client.db('calendar')
+        collection = database.collection('fallingsakura')
+
+        console.log('✅ Connected to MongoDB Atlas!')
+      } catch (err) {
+        console.error('❌ Connect failed: ', err)
+        connectionPromise = null // unlock
+        throw err
+      }
+    })()
   }
+  await connectionPromise
   return
 }
 // Generate password hash
@@ -55,7 +69,7 @@ function authenticateToken(req, res, next) {
 app.use(cors())
 app.use(express.json())
 app.use((req, res, next) => {
-  console.log(`Request Time: ${new Date()}`)
+  console.log(`${req.url} Request Time: ${new Date()}`)
   next()
 })
 
@@ -171,6 +185,8 @@ app.put('/changepassword', authenticateToken, async (req, res) => {
     res.status(500).send('Server Error')
   }
 })
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server is running at http://localhost:${port}`)
+connectToDatabase().then(() => {
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Server is running at http://localhost:${port}`)
+  })
 })

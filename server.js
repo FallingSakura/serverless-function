@@ -73,20 +73,53 @@ app.use((req, res, next) => {
   next()
 })
 
-app.put('/update-data', authenticateToken, async (req, res) => {
+app.put('/update/:item', authenticateToken, async (req, res) => {
   await connectToDatabase()
+  const item = req.params.item
   const id = req.id
-  const { date, value } = req.body
-  try {
-    await collection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { [`data.${date}`]: value } }
-    )
-  } catch (err) {
-    console.error(err)
-    res.status(500).send('Update: Server Error')
+  switch (item) {
+    case 'data':
+      const { date, value } = req.body
+      try {
+        await collection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { [`data.${date}`]: value } }
+        )
+      } catch (err) {
+        console.error(err)
+        res.status(500).send('Update: Server Error')
+      }
+      res.send('Update-data Success')
+      break
+    case 'password':
+      const { email, oldPassword, newPassword } = req.body
+      try {
+        const user = await collection.findOne({ email: email })
+        if (!user) {
+          return res.status(401).json({ message: 'email error' })
+        }
+        collection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              password: await generatePassword(newPassword)
+            }
+          }
+        )
+        res.status(200).json({ message: 'Changed Successfully!' })
+      } catch (err) {
+        console.error(err)
+        res.status(500).send('Server Error')
+      }
+      break
+    default:
+      res.send('Invalid Request.')
+      break
+    case 'avatar':
+      break
+    case 'username':
+      break
   }
-  res.send('Update-data Success')
 })
 app.get('/get/:item', authenticateToken, async (req, res) => {
   await connectToDatabase()
@@ -159,29 +192,6 @@ app.post('/register', async (req, res) => {
       .json({ message: 'Register Successfully!', userId: user._id })
   } catch (err) {
     console.error(err.message)
-    res.status(500).send('Server Error')
-  }
-})
-app.put('/changepassword', authenticateToken, async (req, res) => {
-  await connectToDatabase()
-  const id = req.id
-  const { email, oldPassword, newPassword } = req.body
-  try {
-    const user = await collection.findOne({ email: email })
-    if (!user) {
-      return res.status(401).json({ message: 'email error' })
-    }
-    collection.updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          password: await generatePassword(newPassword)
-        }
-      }
-    )
-    res.status(200).json({ message: 'Changed Successfully!' })
-  } catch (err) {
-    console.error(err)
     res.status(500).send('Server Error')
   }
 })

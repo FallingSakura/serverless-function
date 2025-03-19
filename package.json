@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "calendarData.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "nodemon server.js"
   },
   "keywords": [],
   "author": "fallingsakura",
@@ -16,5 +16,8 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }

@@ -10,6 +10,10 @@ const port = 5001
 let connectionPromise = null
 
 let database, collection, client
+async function sleep(d) {
+  for (var t = Date.now(); Date.now() - t <= d; );
+}
+
 async function connectToDatabase() {
   if (client?.topology?.isConnected()) return
   if (!connectionPromise) {
@@ -112,12 +116,12 @@ app.put('/update/:item', authenticateToken, async (req, res) => {
         res.status(500).send('Server Error')
       }
       break
-    default:
-      res.send('Invalid Request.')
-      break
     case 'avatar':
       break
     case 'username':
+      break
+    default:
+      res.send('Invalid Request.')
       break
   }
 })
@@ -148,6 +152,7 @@ app.get('/get/:item', authenticateToken, async (req, res) => {
 app.post('/login', async (req, res) => {
   await connectToDatabase()
   const { email, password } = req.body
+  sleep(500)
   try {
     if (!email) return res.status(400).json({ message: 'No Email.' })
     const user = await collection.findOne({ email: email })
